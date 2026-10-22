@@ -1,0 +1,25 @@
+# Dependências
+node_modules
+
+# Build
+dist
+
+# Variáveis de ambiente
+.env
+
+# Banco SQLite local
+*.db
+*.db-journal
+
+# Prisma Client gerado (se existir)
+/generated/prisma
+
+# Testes e logs
+coverage
+*.log
+
+# Sistema e editor
+.DS_Store
+.vscode
+
+*.tsbuildinfo

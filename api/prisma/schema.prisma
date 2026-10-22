@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Attraction {
+  id          Int    @id @default(autoincrement())
+  name        String
+  description String
+  works       Work[]
+}
+
+model Work {
+  id            Int        @id @default(autoincrement())
+  attraction_id Int
+  attraction    Attraction @relation(fields: [attraction_id], references: [id], onDelete: Cascade)
+  title         String
+  author        String
+  description   String
+}
