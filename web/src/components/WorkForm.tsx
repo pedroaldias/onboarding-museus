@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { WorkInput } from '@/models/types';
+import type { WorkInput } from '@/models/types';
+import { getErrorMessage } from '@/services/api';
+import Alert from './ui/Alert';
+import Button from './ui/Button';
+import { TextAreaField, TextField } from './ui/Field';
 
 interface Props {
   onSubmit: (data: WorkInput) => Promise<void>;
 }
-
-const inputClass =
-  'w-full rounded border border-gray-400 bg-white px-3 py-2 text-black';
 
 export default function WorkForm({ onSubmit }: Props) {
   const [title, setTitle] = useState('');
@@ -31,44 +32,44 @@ export default function WorkForm({ onSubmit }: Props) {
       setAuthor('');
       setDescription('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar');
+      setError(getErrorMessage(err, 'Erro ao salvar'));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input
-        className={inputClass}
-        placeholder="Título da obra"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <TextField
+        label="Título da obra"
+        placeholder="Ex.: Estátua de Anúbis"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
+        maxLength={200}
+        autoComplete="off"
         required
       />
-      <input
-        className={inputClass}
-        placeholder="Autor"
+      <TextField
+        label="Autor"
+        placeholder="Ex.: Desconhecido"
         value={author}
         onChange={(e) => setAuthor(e.target.value)}
+        maxLength={200}
+        autoComplete="off"
         required
       />
-      <textarea
-        className={inputClass}
-        placeholder="Descrição"
+      <TextAreaField
+        label="Descrição"
         rows={3}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
+        maxLength={5000}
         required
       />
-      {error && <p className="text-sm text-red-500">{error}</p>}
-      <button
-        type="submit"
-        disabled={saving}
-        className="self-start rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
-      >
+      {error && <Alert>{error}</Alert>}
+      <Button type="submit" variant="primary" loading={saving} className="self-start">
         {saving ? 'Salvando...' : 'Adicionar obra'}
-      </button>
+      </Button>
     </form>
   );
 }

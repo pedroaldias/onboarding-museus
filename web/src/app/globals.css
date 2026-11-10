@@ -1,25 +1,123 @@
 @import "tailwindcss";
 
+/*
+ * Direção visual: "acervo" — papel quente, tinta e verde-patina, com serifa
+ * editorial nos títulos (Fraunces) e sans neutra na interface (Geist).
+ * Cores validadas para WCAG AA: texto >= 4.5:1; bordas de campos >= 3:1.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light dark;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --paper: #f6f2ea;
+  --surface: #fffdf8;
+  --ink: #1d1a16;
+  --muted: #5c5448;
+  --line: #ddd3c1;
+  --control: #7d7262; /* borda de campos/botões secundários (3:1 sobre a superfície) */
+  --accent: #1f5f5b;
+  --accent-hover: #174b48;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2efec;
+  --danger: #9b2226;
+  --danger-soft: #f6e3e1;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #12100e;
+    --surface: #1b1814;
+    --ink: #ece5d8;
+    --muted: #a99f8f;
+    --line: #322d26;
+    --control: #8b8171;
+    --accent: #6fc2b9;
+    --accent-hover: #8fd3cb;
+    --accent-ink: #0b1c1a;
+    --accent-soft: #16302d;
+    --danger: #f08a82;
+    --danger-soft: #3a1a18;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-control: var(--control);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+@theme {
+  --shadow-card:
+    0 1px 2px rgb(29 26 22 / 0.06), 0 12px 28px -14px rgb(29 26 22 / 0.28);
+
+  --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pop: pop 0.18s ease-out both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 }
 
 @layer base {
+  html {
+    scroll-padding-top: 5rem; /* âncoras não ficam sob o header fixo */
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+
+  /* Foco sempre visível e consistente para teclado */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
   button:not(:disabled),
   [role='button']:not(:disabled) {
     cursor: pointer;
@@ -28,10 +126,25 @@
   button:disabled {
     cursor: not-allowed;
   }
+
+  dialog[open] {
+    animation: pop 0.18s ease-out both;
+  }
+
+  dialog::backdrop {
+    background: rgb(10 8 6 / 0.55);
+    backdrop-filter: blur(2px);
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Respeita quem pede menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

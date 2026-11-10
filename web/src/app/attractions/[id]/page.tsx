@@ -1,151 +1,238 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Attraction, Work } from '@/models/types';
-import {
-  createWork,
-  deleteWork,
-  getAttraction,
-  listWorks,
-  updateAttraction,
-} from '@/services/api';
+import type { Work } from '@/models/types';
+import { useAttractionDetails } from '@/hooks/useAttractionDetails';
+import { getErrorMessage } from '@/services/api';
 import AttractionForm from '@/components/AttractionForm';
 import WorkForm from '@/components/WorkForm';
+import WorkItem from '@/components/WorkItem';
+import Alert from '@/components/ui/Alert';
+import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import EmptyState from '@/components/ui/EmptyState';
 
-function AttractionDetails() {
-  const params = useParams<{ id: string }>();
-  const id = Number(params.id);
+function BackLink() {
+  return (
+    <nav aria-label="Trilha de navegação" className="text-sm">
+      <Link href="/" className="text-accent hover:underline">
+        ← Voltar para atrações
+      </Link>
+    </nav>
+  );
+}
 
-  const [attraction, setAttraction] = useState<Attraction | null>(null);
-  const [works, setWorks] = useState<Work[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+function DetailsSkeleton() {
+  return (
+    <div role="status" aria-live="polite">
+      <span className="sr-only">Carregando atração…</span>
+      <div aria-hidden="true" className="animate-pulse">
+        <div className="h-3 w-24 rounded bg-line" />
+        <div className="mt-6 h-10 w-2/3 rounded bg-line" />
+        <div className="mt-4 h-4 w-full max-w-xl rounded bg-line" />
+        <div className="mt-2 h-4 w-1/2 rounded bg-line" />
+      </div>
+    </div>
+  );
+}
+
+function AttractionDetails({ id }: { id: number }) {
+  const {
+    attraction,
+    works,
+    error,
+    loading,
+    reload,
+    saveAttraction,
+    addWork,
+    removeWork,
+  } = useAttractionDetails(id);
+
   const [editing, setEditing] = useState(false);
-  const [reload, setReload] = useState(0);
+  const [target, setTarget] = useState<Work | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState('');
 
+  // Ao sair do modo de edição, devolve o foco ao botão "Editar atração".
+  const editButton = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
   useEffect(() => {
-    let active = true;
-    Promise.all([getAttraction(id), listWorks(id)])
-      .then(([a, w]) => {
-        if (active) {
-          setAttraction(a);
-          setWorks(w);
-          setError('');
-        }
-      })
-      .catch((e: Error) => active && setError(e.message))
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
-  }, [id, reload]);
+    if (wasEditing.current && !editing) editButton.current?.focus();
+    wasEditing.current = editing;
+  }, [editing]);
 
-  async function handleDeleteWork(workId: number) {
-    if (!confirm('Apagar esta obra?')) return;
+  async function confirmDelete() {
+    if (!target) return;
+    setDeleting(true);
+    setActionError('');
     try {
-      await deleteWork(id, workId);
-      setReload((r) => r + 1);
+      await removeWork(target.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao apagar');
+      setActionError(getErrorMessage(e, 'Erro ao apagar'));
+    } finally {
+      setTarget(null);
+      setDeleting(false);
     }
   }
 
-  if (loading) return <main className="p-6">Carregando...</main>;
+  if (loading) {
+    return (
+      <>
+        <BackLink />
+        <div className="mt-6">
+          <DetailsSkeleton />
+        </div>
+      </>
+    );
+  }
 
   if (!attraction) {
     return (
-      <main className="mx-auto max-w-3xl p-6">
-        <p className="mb-4 text-red-500">{error || 'Atração não encontrada'}</p>
-        <Link href="/" className="text-blue-500 hover:underline">
-          ← Voltar
-        </Link>
-      </main>
+      <div className="mx-auto max-w-xl">
+        <BackLink />
+        <div className="mt-6">
+          <Alert
+            action={
+              <Button variant="secondary" onClick={reload}>
+                Tentar novamente
+              </Button>
+            }
+          >
+            {error || 'Atração não encontrada'}
+          </Alert>
+        </div>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <Link href="/" className="text-blue-500 hover:underline">
-        ← Voltar para atrações
-      </Link>
+    <>
+      <BackLink />
 
-      <section className="my-6">
+      <section className="mt-6 max-w-2xl">
         {editing ? (
-          <AttractionForm
-            initial={{
-              name: attraction.name,
-              description: attraction.description,
-            }}
-            submitLabel="Salvar alterações"
-            onCancel={() => setEditing(false)}
-            onSubmit={async (data) => {
-              await updateAttraction(id, data);
-              setEditing(false);
-              setReload((r) => r + 1);
-            }}
-          />
+          <div className="rounded-2xl border border-line bg-surface p-6 shadow-card">
+            <AttractionForm
+              initial={{
+                name: attraction.name,
+                description: attraction.description,
+              }}
+              submitLabel="Salvar alterações"
+              onCancel={() => setEditing(false)}
+              onSubmit={async (data) => {
+                await saveAttraction(data);
+                setEditing(false);
+              }}
+            />
+          </div>
         ) : (
           <>
-            <h1 className="text-3xl font-bold">{attraction.name}</h1>
-            <p className="mt-2 opacity-80">{attraction.description}</p>
-            <button
+            <h1 className="font-display text-[clamp(2rem,5vw,3.25rem)] leading-[1.08] tracking-tight">
+              {attraction.name}
+            </h1>
+            <p className="mt-4 text-lg text-muted">{attraction.description}</p>
+            <Button
+              ref={editButton}
+              variant="secondary"
+              className="mt-6"
               onClick={() => setEditing(true)}
-              className="mt-3 rounded border border-gray-400 px-3 py-1 text-sm"
             >
               Editar atração
-            </button>
+            </Button>
           </>
         )}
       </section>
 
-      {error && <p className="mb-4 text-red-500">{error}</p>}
-
-      <h2 className="mb-3 text-2xl font-semibold">Obras</h2>
-
-      {works.length === 0 ? (
-        <p className="mb-6">Nenhuma obra cadastrada nesta atração.</p>
-      ) : (
-        <ul className="mb-8 flex flex-col gap-3">
-          {works.map((w) => (
-            <li
-              key={w.id}
-              className="flex items-start justify-between gap-4 rounded border border-gray-400/40 p-4"
-            >
-              <div>
-                <p className="text-lg font-semibold">{w.title}</p>
-                <p className="text-sm opacity-70">Autor: {w.author}</p>
-                <p className="mt-1 text-sm opacity-80">{w.description}</p>
-              </div>
-              <button
-                onClick={() => handleDeleteWork(w.id)}
-                className="shrink-0 rounded border border-red-500 px-3 py-1 text-sm text-red-500"
-              >
-                Apagar
-              </button>
-            </li>
-          ))}
-        </ul>
+      {error && (
+        <div className="mt-8">
+          <Alert>{error}</Alert>
+        </div>
+      )}
+      {actionError && (
+        <div className="mt-8">
+          <Alert>{actionError}</Alert>
+        </div>
       )}
 
-      <section className="rounded border border-gray-400/40 p-4">
-        <h3 className="mb-3 text-xl font-semibold">Nova obra</h3>
-        <WorkForm
-          onSubmit={async (data) => {
-            await createWork(id, data);
-            setReload((r) => r + 1);
-          }}
-        />
-      </section>
-    </main>
+      <div className="mt-12 grid gap-10 lg:grid-cols-[1fr_22rem] lg:items-start">
+        <section aria-labelledby="obras-titulo">
+          <h2
+            id="obras-titulo"
+            className="font-display text-3xl tracking-tight"
+          >
+            Obras
+          </h2>
+
+          <div className="mt-5">
+            {works.length === 0 ? (
+              <EmptyState
+                title="Nenhuma obra cadastrada nesta atração."
+                description="Use o formulário ao lado para adicionar a primeira."
+              />
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {works.map((work) => (
+                  <WorkItem key={work.id} work={work} onDelete={setTarget} />
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <aside
+          aria-labelledby="nova-obra-titulo"
+          className="rounded-2xl border border-line bg-surface p-6 shadow-card lg:sticky lg:top-24"
+        >
+          <h2
+            id="nova-obra-titulo"
+            className="mb-4 font-display text-2xl tracking-tight"
+          >
+            Nova obra
+          </h2>
+          <WorkForm onSubmit={addWork} />
+        </aside>
+      </div>
+
+      <ConfirmDialog
+        open={target !== null}
+        title="Apagar obra?"
+        description={
+          target ? `“${target.title}” será apagada. Essa ação não pode ser desfeita.` : ''
+        }
+        confirmLabel="Apagar definitivamente"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setTarget(null)}
+      />
+    </>
   );
+}
+
+function AttractionRoute() {
+  const params = useParams<{ id: string }>();
+  const id = Number(params.id);
+
+  if (!Number.isInteger(id) || id < 1) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <BackLink />
+        <div className="mt-6">
+          <Alert>Atração não encontrada</Alert>
+        </div>
+      </div>
+    );
+  }
+
+  // key: trocar de atração reinicia o estado do hook por completo.
+  return <AttractionDetails key={id} id={id} />;
 }
 
 export default function AttractionPage() {
   return (
-    <Suspense fallback={<main className="p-6">Carregando...</main>}>
-      <AttractionDetails />
+    <Suspense fallback={<DetailsSkeleton />}>
+      <AttractionRoute />
     </Suspense>
   );
 }

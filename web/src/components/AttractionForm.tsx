@@ -1,7 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { AttractionInput } from '@/models/types';
+import type { AttractionInput } from '@/models/types';
+import { getErrorMessage } from '@/services/api';
+import Alert from './ui/Alert';
+import Button from './ui/Button';
+import { TextAreaField, TextField } from './ui/Field';
 
 interface Props {
   initial?: AttractionInput;
@@ -9,9 +13,6 @@ interface Props {
   onSubmit: (data: AttractionInput) => Promise<void>;
   onCancel?: () => void;
 }
-
-const inputClass =
-  'w-full rounded border border-gray-400 bg-white px-3 py-2 text-black';
 
 export default function AttractionForm({
   initial,
@@ -35,46 +36,41 @@ export default function AttractionForm({
         setDescription('');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar');
+      setError(getErrorMessage(err, 'Erro ao salvar'));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input
-        className={inputClass}
-        placeholder="Nome da atração"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <TextField
+        label="Nome da atração"
+        placeholder="Ex.: Museu Théo Brandão"
         value={name}
         onChange={(e) => setName(e.target.value)}
+        maxLength={200}
+        autoComplete="off"
+        autoFocus={Boolean(initial)}
         required
       />
-      <textarea
-        className={inputClass}
-        placeholder="Descrição"
-        rows={3}
+      <TextAreaField
+        label="Descrição"
+        rows={4}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
+        maxLength={5000}
         required
       />
-      {error && <p className="text-sm text-red-500">{error}</p>}
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
-        >
+      {error && <Alert>{error}</Alert>}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" variant="primary" loading={saving}>
           {saving ? 'Salvando...' : submitLabel}
-        </button>
+        </Button>
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded border border-gray-400 px-4 py-2"
-          >
+          <Button variant="ghost" onClick={onCancel} disabled={saving}>
             Cancelar
-          </button>
+          </Button>
         )}
       </div>
     </form>

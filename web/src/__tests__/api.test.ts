@@ -1,18 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  ApiError,
   createAttraction,
   deleteAttraction,
+  isAbortError,
   listAttractions,
 } from '@/services/api';
 
 const fetchMock = vi.fn();
 
-function jsonResponse(status: number, body?: unknown, ok = status < 400) {
-  return {
-    ok,
-    status,
-    json: async () => body,
-  } as unknown as Response;
+function jsonResponse(status: number, body?: unknown) {
+  return { ok: status < 400, status, json: async () => body } as unknown as Response;
 }
 
 describe('services/api', () => {
@@ -29,13 +27,23 @@ describe('services/api', () => {
     const data = [{ id: 1, name: 'Museu', description: 'Desc' }];
     fetchMock.mockResolvedValue(jsonResponse(200, data));
 
-    const result = await listAttractions();
-
-    expect(result).toEqual(data);
+    await expect(listAttractions()).resolves.toEqual(data);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringMatching(/\/attraction$/),
       expect.objectContaining({ cache: 'no-store' }),
     );
+  });
+
+  it('repassa o AbortSignal do chamador ao fetch', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, []));
+    const controller = new AbortController();
+
+    await listAttractions(controller.signal);
+
+    const { signal } = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(signal?.aborted).toBe(false);
+    controller.abort();
+    expect(signal?.aborted).toBe(true);
   });
 
   it('createAttraction envia POST com JSON no corpo', async () => {
@@ -55,17 +63,20 @@ describe('services/api', () => {
       jsonResponse(400, { message: ['name não pode ser vazio', 'description inválida'] }),
     );
 
-    await expect(
-      createAttraction({ name: '', description: '' }),
-    ).rejects.toThrow('name não pode ser vazio, description inválida');
+    await expect(createAttraction({ name: '', description: '' })).rejects.toThrow(
+      'name não pode ser vazio, description inválida',
+    );
   });
 
-  it('usa a mensagem da API em um 404', async () => {
+  it('usa a mensagem da API em um 404 e expõe o status', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(404, { message: 'Atração 999 não encontrada' }),
     );
 
-    await expect(listAttractions()).rejects.toThrow('Atração 999 não encontrada');
+    const error = await listAttractions().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(404);
+    expect((error as ApiError).message).toBe('Atração 999 não encontrada');
   });
 
   it('usa uma mensagem padrão quando a resposta de erro não é JSON', async () => {
@@ -78,6 +89,19 @@ describe('services/api', () => {
     } as unknown as Response);
 
     await expect(listAttractions()).rejects.toThrow('Erro 500');
+  });
+
+  it('traduz falha de rede em mensagem amigável', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await expect(listAttractions()).rejects.toThrow(/Não foi possível conectar à API/);
+  });
+
+  it('propaga o cancelamento sem transformá-lo em erro de rede', async () => {
+    fetchMock.mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+
+    const error = await listAttractions().catch((e: unknown) => e);
+    expect(isAbortError(error)).toBe(true);
   });
 
   it('retorna undefined em respostas 204 (DELETE)', async () => {

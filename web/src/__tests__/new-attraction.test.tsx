@@ -8,7 +8,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }));
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/services/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/services/api')>()),
   createAttraction: vi.fn(),
 }));
 
@@ -30,11 +31,8 @@ describe('Página de nova atração', () => {
 
     render(<NewAttractionPage />);
 
-    await user.type(
-      screen.getByPlaceholderText('Nome da atração'),
-      'Museu Théo Brandão',
-    );
-    await user.type(screen.getByPlaceholderText('Descrição'), 'Museu em Maceió');
+    await user.type(screen.getByLabelText('Nome da atração'), 'Museu Théo Brandão');
+    await user.type(screen.getByLabelText('Descrição'), 'Museu em Maceió');
     await user.click(screen.getByRole('button', { name: 'Cadastrar atração' }));
 
     expect(createAttraction).toHaveBeenCalledWith({
@@ -44,17 +42,17 @@ describe('Página de nova atração', () => {
     expect(push).toHaveBeenCalledWith('/');
   });
 
-  it('mostra o erro da API e não sai da página', async () => {
+  it('mostra o erro da API como alerta e não sai da página', async () => {
     const user = userEvent.setup();
     vi.mocked(createAttraction).mockRejectedValue(new Error('Erro ao salvar'));
 
     render(<NewAttractionPage />);
 
-    await user.type(screen.getByPlaceholderText('Nome da atração'), 'Museu');
-    await user.type(screen.getByPlaceholderText('Descrição'), 'Desc');
+    await user.type(screen.getByLabelText('Nome da atração'), 'Museu');
+    await user.type(screen.getByLabelText('Descrição'), 'Desc');
     await user.click(screen.getByRole('button', { name: 'Cadastrar atração' }));
 
-    expect(await screen.findByText('Erro ao salvar')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Erro ao salvar');
     expect(push).not.toHaveBeenCalled();
   });
 
@@ -66,5 +64,12 @@ describe('Página de nova atração', () => {
 
     expect(push).toHaveBeenCalledWith('/');
     expect(createAttraction).not.toHaveBeenCalled();
+  });
+
+  it('todos os campos têm rótulo associado (acessibilidade)', () => {
+    render(<NewAttractionPage />);
+
+    expect(screen.getByLabelText('Nome da atração')).toBeRequired();
+    expect(screen.getByLabelText('Descrição')).toBeRequired();
   });
 });
