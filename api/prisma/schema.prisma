@@ -21,4 +21,7 @@ model Work {
   title         String
   author        String
   description   String
+
+  // SQLite não indexa FKs automaticamente: sem isto, listar obras e o ON DELETE CASCADE varrem a tabela inteira.
+  @@index([attraction_id])
 }

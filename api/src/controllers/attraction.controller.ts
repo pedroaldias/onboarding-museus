@@ -1,18 +1,23 @@
 import {
-  Body, Controller, Delete, Get, HttpCode, Param,
-  ParseIntPipe, Patch, Post,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
 } from '@nestjs/common';
 import { AttractionService } from '../services/attraction.service';
-import { WorkService } from '../services/work.service';
-import { CreateAttractionDto, UpdateAttractionDto } from '../models/attraction.dto';
-import { CreateWorkDto } from '../models/work.dto';
+import {
+  CreateAttractionDto,
+  UpdateAttractionDto,
+} from '../models/attraction.dto';
+import { IdPipe } from '../pipes/id.pipe';
 
 @Controller('attraction')
 export class AttractionController {
-  constructor(
-    private readonly attractionService: AttractionService,
-    private readonly workService: WorkService,
-  ) {}
+  constructor(private readonly attractionService: AttractionService) {}
 
   @Get()
   findAll() {
@@ -25,39 +30,18 @@ export class AttractionController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', IdPipe) id: number) {
     return this.attractionService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAttractionDto) {
+  update(@Param('id', IdPipe) id: number, @Body() dto: UpdateAttractionDto) {
     return this.attractionService.update(id, dto);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id', IdPipe) id: number) {
     return this.attractionService.remove(id);
-  }
-
-  // ---- Obras ----
-
-  @Get(':id/work')
-  findWorks(@Param('id', ParseIntPipe) id: number) {
-    return this.workService.findByAttraction(id);
-  }
-
-  @Post(':id/work')
-  createWork(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateWorkDto) {
-    return this.workService.create(id, dto);
-  }
-
-  @Delete(':id/work/:workId')
-  @HttpCode(204)
-  removeWork(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('workId', ParseIntPipe) workId: number,
-  ) {
-    return this.workService.remove(id, workId);
   }
 }

@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AttractionService } from './attraction.service';
 import { WorkRepository } from '../repositories/work.repository';
 import { CreateWorkDto } from '../models/work.dto';
+import { attractionNotFound, workNotFound } from './not-found';
 
 @Injectable()
 export class WorkService {
@@ -11,22 +12,20 @@ export class WorkService {
   ) {}
 
   async findByAttraction(attractionId: number) {
-    await this.attractionService.findOne(attractionId);
-    return this.repo.findByAttraction(attractionId);
+    const works = await this.repo.findByAttraction(attractionId);
+    if (!works) throw attractionNotFound(attractionId);
+    return works;
   }
 
   async create(attractionId: number, dto: CreateWorkDto) {
+    // Mantida a checagem explícita: dá a mensagem certa sem depender do código
+    // de erro de violação de FK, que varia entre bancos.
     await this.attractionService.findOne(attractionId);
     return this.repo.create(attractionId, dto);
   }
 
   async remove(attractionId: number, workId: number) {
-    const work = await this.repo.findById(workId);
-    if (!work || work.attraction_id !== attractionId) {
-      throw new NotFoundException(
-        `Obra ${workId} não encontrada na atração ${attractionId}`,
-      );
-    }
-    await this.repo.delete(workId);
+    const deleted = await this.repo.deleteFromAttraction(attractionId, workId);
+    if (!deleted) throw workNotFound(workId, attractionId);
   }
 }

@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AttractionRepository } from '../repositories/attraction.repository';
-import { CreateAttractionDto, UpdateAttractionDto } from '../models/attraction.dto';
+import {
+  CreateAttractionDto,
+  UpdateAttractionDto,
+} from '../models/attraction.dto';
+import { isRecordNotFound } from '../prisma/prisma-errors';
+import { attractionNotFound } from './not-found';
 
 @Injectable()
 export class AttractionService {
@@ -12,7 +17,7 @@ export class AttractionService {
 
   async findOne(id: number) {
     const attraction = await this.repo.findById(id);
-    if (!attraction) throw new NotFoundException(`Atração ${id} não encontrada`);
+    if (!attraction) throw attractionNotFound(id);
     return attraction;
   }
 
@@ -20,13 +25,25 @@ export class AttractionService {
     return this.repo.create(dto);
   }
 
+  /**
+   * Uma query em vez de duas: o Prisma já lança P2025 quando o registro não
+   * existe. Isso também elimina a janela de corrida entre "checar" e "gravar".
+   */
   async update(id: number, dto: UpdateAttractionDto) {
-    await this.findOne(id);
-    return this.repo.update(id, dto);
+    try {
+      return await this.repo.update(id, dto);
+    } catch (error) {
+      if (isRecordNotFound(error)) throw attractionNotFound(id);
+      throw error;
+    }
   }
 
   async remove(id: number) {
-    await this.findOne(id);
-    await this.repo.delete(id);
+    try {
+      await this.repo.delete(id);
+    } catch (error) {
+      if (isRecordNotFound(error)) throw attractionNotFound(id);
+      throw error;
+    }
   }
 }
